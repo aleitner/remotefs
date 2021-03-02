@@ -2,32 +2,55 @@ package server
 
 import (
 	"fmt"
+	"github.com/soheilhy/cmux"
+	"net"
+
 	log "github.com/sirupsen/logrus"
-	"net/http"
-	"os"
 )
 
 type RemoteFileServer struct {
-	directory string
-	address string
+	httpServer *HttpRemoteFileServer
+	grpcServer *GrpcRemoteFileServer
 	logger *log.Logger
+	address string
 }
 
 func NewRFS(logger *log.Logger, dir, address string) (*RemoteFileServer, error) {
-	fi, err := os.Stat(dir)
-	if err != nil || !fi.Mode().IsDir() {
-		return nil, fmt.Errorf("%s is not a valid directory", dir)
+	httpServer, err := NewHttpRFS(logger, dir)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create HTTP Server: %s", err)
+	}
+
+	grpcServer, err := NewGrpcRFS(logger, dir)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create GRPC Server: %s", err)
 	}
 
 	return &RemoteFileServer{
-		directory: dir,
 		address: address,
 		logger:    logger,
+		httpServer: httpServer,
+		grpcServer: grpcServer,
 	}, nil
 }
 
 func(rfs RemoteFileServer) Serve() {
-	fs := http.FileServer(http.Dir(rfs.directory))
+	l, err := net.Listen("tcp", rfs.address)
+	if err != nil {
+		rfs.logger.Error(err)
+		return
+	}
 
-	http.ListenAndServe(rfs.address, fs)
+	// Create a cmux.
+	m := cmux.New(l)
+
+	// First grpc, then HTTP, and otherwise Go RPC/TCP.
+	grpcL := m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
+	httpL := m.Match(cmux.HTTP1Fast())
+
+	go rfs.httpServer.Serve(httpL)
+	go rfs.grpcServer.Serve(grpcL)
+
+	m.Serve()
 }
+

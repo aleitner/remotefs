@@ -1,0 +1,20 @@
+syntax = "proto3";
+option go_package = ".rfspb";
+
+package rfspb;
+
+service FTransfer {
+  rpc Upload (stream File) returns (Empty);
+}
+
+message Empty{}
+
+message File {
+  message Meta {
+    string name = 1;
+    string extension = 2;
+  }
+
+  bytes content = 1;
+  Meta meta = 2;
+}
