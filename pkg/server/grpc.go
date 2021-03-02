@@ -3,7 +3,10 @@ package server
 import (
 	"net"
 
+	rfspb "remotefs/pkg/protobuf"
+
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 )
 
 type GrpcRemoteFileServer struct {
@@ -18,5 +21,13 @@ func NewGrpcRFS(logger *log.Logger, dir string) (*GrpcRemoteFileServer, error) {
 	}, nil
 }
 
-func(rfs GrpcRemoteFileServer) Serve(l net.Listener) {
+func(rfs *GrpcRemoteFileServer) Serve(l net.Listener) {
+	grpcS := grpc.NewServer()
+	rfspb.RegisterFTransferServer(grpcS, rfs)
+
+	grpcS.Serve(l)
+}
+
+func(rfs *GrpcRemoteFileServer) Upload(server rfspb.FTransfer_UploadServer) error {
+	return nil
 }

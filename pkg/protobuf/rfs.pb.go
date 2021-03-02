@@ -4,7 +4,7 @@
 // 	protoc        v3.13.0
 // source: rfs.proto
 
-package __rfspb
+package rfspb
 
 import (
 	proto "github.com/golang/protobuf/proto"
